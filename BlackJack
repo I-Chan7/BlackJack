@@ -1,0 +1,213 @@
+from Cards import Cards
+from Wallet import Wallet
+from Score import fetch_score, check_blackjack, check_hand, compare_score
+
+
+def place_bet(balance):
+    """Return the betting amount for current round"""
+    bet = 0
+    while (bet > balance.get_balance()) or (bet <= 0):
+        while True:
+            try:
+                bet = float(input("Place enter a valid bet: "))  # take user input as betting amount
+            except ValueError:
+                continue
+            else:
+                break
+    balance.subtract_from_wallet(bet)
+    print("\nBet: £{0:.2f}".format(bet))
+    return bet
+
+
+def play_hand(card_deck, hand, score, dealer_hand):
+    """Play the current player hand and return the final score"""
+    stop = False
+    while not stop and score <= 21:
+        hit = input("\nDraw card? : Y/N")
+        while hit.upper() != "Y" and hit.upper() != "N":
+            hit = input("Draw card? : Y/N")
+
+        # player draws
+        if hit.upper() == "Y":
+            hand.append((next(card_deck)))
+            print("--------------------------\nDealer: {:^7}\n".format(dealer_hand[0]), end=' ')
+            print("\nPlayer:", end=' ')
+            score = check_hand(hand)
+            if "Ace" in hand:
+                if score + 10 <= 21:
+                    score += 10
+            if score > 21:
+                stop = True
+        elif hit.upper() == "N":
+            stop = True
+    return score
+
+
+def play_dealer_hand(card_deck, dealer_hand, dealer_score):
+    """Play the dealer hand and return the final score"""
+    while dealer_score <= 16:  # dealer must draw on <=16 and stand on >=17
+        print("--------------------------\nDealer:", end=' ')
+        dealer_hand.append((next(card_deck)))
+        dealer_score = check_hand(dealer_hand)
+    return dealer_score
+
+
+def calculate_winnings(split, player_blackjack, split_blackjack, player_score, split_score,
+                       dealer_score, balance, bet, player_active_hands):
+    """Calculate the player winnings and add to wallet"""
+    if player_blackjack and split_blackjack:
+        balance.add_to_wallet(bet * 5)
+    elif not split and player_blackjack:
+        balance.add_to_wallet(bet * 2.5)
+    else:
+        if player_blackjack or split_blackjack:
+            balance.add_to_wallet(bet * 2.5)
+        if player_active_hands >= 1:  # active hands are hands that are not blackjacks or busts
+            if dealer_score > 21:  # no score comparison necessary if dealer bust
+                print("Dealer Bust\n")
+                if player_active_hands == 2:
+                    balance.add_to_wallet(bet * 4)
+                else:
+                    balance.add_to_wallet(bet * 2)
+            else:
+                if player_score <= 21 and not player_blackjack:
+                    result = compare_score(player_score, dealer_score)
+                    if result == "Win":
+                        balance.add_to_wallet(bet * 2)
+                    elif result == "Draw":
+                        balance.add_to_wallet(bet)
+                if split and split_score <= 21 and not split_blackjack:
+                    result = compare_score(split_score, dealer_score)
+                    if result == "Win":
+                        balance.add_to_wallet(bet * 2)
+                    elif result == "Draw":
+                        balance.add_to_wallet(bet)
+
+
+def main():
+    balance = Wallet()
+    print("Wallet: £{0:.2f}".format(balance.get_balance()))
+    playing = True
+    while playing:
+        bet = place_bet(balance)
+        print("Wallet: £{0:.2f}".format(balance.get_balance()))
+
+        # load card deck
+        game = Cards()
+        game.shuffle()
+        card_deck = iter(game.get_deck())
+
+        # player and dealer draw two cards each
+        player_hand = [(next(card_deck))]
+        dealer_hand = [(next(card_deck))]
+        player_hand.append((next(card_deck)))
+        dealer_hand.append((next(card_deck)))
+
+        dealer_score = fetch_score(dealer_hand[0])
+        print("--------------------------\nDealer: {:^7}".format(dealer_hand[0]), end=' ')
+        print("\nScore: ", dealer_score, "")
+
+        print("\nPlayer:", end=' ')
+        player_score = check_hand(player_hand)
+        player_active_hands = 1  # active hands are hands that are not blackjacks or busts
+
+        player_blackjack = check_blackjack(player_hand)  # check for blackjack
+
+        if player_blackjack:
+            print("\nBlackjack!")
+            player_active_hands -= 1
+
+        split = False
+        split_hand = []
+        split_score = 0
+        split_blackjack = False
+
+        # allow splitting if two player cards are of the same value and remaining balance higher than current bet
+        if player_hand[0] == player_hand[1] and balance.get_balance() > bet:
+            split_request = input("\nSplit? : Y/N")
+            while split_request.upper() != "Y" and split_request.upper() != "N":
+                split_request = input("Split? : Y/N")
+
+            if split_request.upper() == "Y":
+                split = True
+                balance.subtract_from_wallet(bet)
+                print("\nWallet: £{0:.2f}".format(balance.get_balance()))
+                # split player hand into two hands and draw 1 card to each hand
+                split_hand = [player_hand[1]]
+                player_hand = [player_hand[0]]
+                player_hand.append((next(card_deck)))
+                split_hand.append((next(card_deck)))
+                print("--------------------------\nPlayer Hand:", end=' ')
+                player_score = check_hand(player_hand)
+                print("\nSplit Hand:", end=' ')
+                split_score = check_hand(split_hand)
+                player_active_hands += 1
+
+            # check for blackjacks
+            player_blackjack = check_blackjack(player_hand)
+            split_blackjack = check_blackjack(split_hand)
+
+            if player_blackjack and split_blackjack:
+                print("\nDouble Blackjack!")
+                player_active_hands -= 2
+            elif player_blackjack:
+                print("\nBlackjack!")
+                player_active_hands -= 1
+            elif split_blackjack:
+                print("\nBlackjack!")
+                player_active_hands -= 1
+
+        # if still at least 1 hand in play (not blackjack)
+        if player_active_hands >= 1:
+            if not player_blackjack:
+                print("--------------------------\nDealer: {:^7}\n".format(dealer_hand[0]), end=' ')
+                print("\nPlayer Hand:", end=' ')
+                player_score = check_hand(player_hand)
+                player_score = play_hand(card_deck, player_hand, player_score, dealer_hand)
+
+            if player_score > 21:
+                print("\nBust")
+                player_active_hands -= 1
+
+            # if split, check if second hand is still in play
+            if split and not split_blackjack:
+                print("--------------------------\nDealer: {:^7}\n".format(dealer_hand[0]), end=' ')
+                print("\nSplit Hand:", end=' ')
+                split_score = check_hand(split_hand)
+
+                split_score = play_hand(card_deck, split_hand, split_score, dealer_hand)
+
+            if split_score > 21:
+                print("\nBust")
+                player_active_hands -= 1
+
+            # if at least 1 hand is still in play, proceed to dealer turn
+            if player_active_hands >= 1:
+                print("--------------------------\nDealer:", end=' ')
+                dealer_score = check_hand(dealer_hand)
+                dealer_black_jack = check_blackjack(dealer_hand)
+                if dealer_black_jack:
+                    print("\nDealer Blackjack")
+                    player_active_hands = 0
+                else:
+                    dealer_score = play_dealer_hand(card_deck, dealer_hand, dealer_score)
+
+        calculate_winnings(split, player_blackjack, split_blackjack, player_score, split_score,
+                           dealer_score, balance, bet, player_active_hands)
+        print("--------------------------\nWallet: £{0:.2f}".format(balance.get_balance()) + "\n")
+
+        # automatically stop play if balance is 0 at the end of a round
+        if balance.get_balance() <= 0:
+            print("Out of money")
+            playing = False
+        else:
+            continue_request = input("Continue playing? : Y/N")
+            while continue_request.upper() != "Y" and continue_request.upper() != "N":
+                continue_request = input("Continue playing? : Y/N")
+
+            if continue_request.upper() == "N":
+                playing = False
+                print("\nThank you for playing.")
+
+if __name__ == "__main__":
+    main()
