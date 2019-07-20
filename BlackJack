@@ -4,7 +4,7 @@ from Score import fetch_score, check_blackjack, check_hand, compare_score
 
 
 def place_bet(balance):
-    """Return the betting amount for current round"""
+    """Return the betting amount for current round as entered by the user"""
     bet = 0
     while (bet > balance.get_balance()) or (bet <= 0):
         while True:
@@ -62,7 +62,7 @@ def calculate_winnings(split, player_blackjack, split_blackjack, player_score, s
     else:
         if player_blackjack or split_blackjack:
             balance.add_to_wallet(bet * 2.5)
-        if player_active_hands >= 1:  # active hands are hands that are not blackjacks or busts
+        if player_active_hands >= 1:
             if dealer_score > 21:  # no score comparison necessary if dealer bust
                 print("Dealer Bust\n")
                 if player_active_hands == 2:
@@ -109,7 +109,7 @@ def main():
 
         print("\nPlayer:", end=' ')
         player_score = check_hand(player_hand)
-        player_active_hands = 1  # active hands are hands that are not blackjacks or busts
+        player_active_hands = 1  # hands that are not blackjacks or busts
 
         player_blackjack = check_blackjack(player_hand)  # check for blackjack
 
