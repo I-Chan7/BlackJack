@@ -20,7 +20,7 @@ def place_bet(balance):
 
 
 def play_hand(card_deck, hand, score, dealer_hand):
-    """Play the current player hand and return the final score"""
+    """Play the current hand and return the final score"""
     stop = False
     while not stop and score <= 21:
         hit = input("\nDraw card? : Y/N")

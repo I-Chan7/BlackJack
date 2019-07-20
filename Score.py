@@ -17,7 +17,6 @@ def check_hand(hand):
     score = 0
     score2 = 0
     for i in range(len(hand)):
-        # Ace can be 1 or 11
         if "Ace" in hand:
             if hand[i] == "Ace":
                 score += 1
